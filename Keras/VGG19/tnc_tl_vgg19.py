@@ -20,72 +20,35 @@ epochs = 100
 
 model = applications.VGG19(weights="imagenet", include_top=False, input_shape=(img_width, img_height, 3))
 
-"""
-Layer (type)                 Output Shape              Param #   
-=================================================================
-input_1 (InputLayer)         (None, 256, 256, 3)       0         
-_________________________________________________________________
-block1_conv1 (Conv2D)        (None, 256, 256, 64)      1792      
-_________________________________________________________________
-block1_conv2 (Conv2D)        (None, 256, 256, 64)      36928     
-_________________________________________________________________
-block1_pool (MaxPooling2D)   (None, 128, 128, 64)      0         
-_________________________________________________________________
-block2_conv1 (Conv2D)        (None, 128, 128, 128)     73856     
-_________________________________________________________________
-block2_conv2 (Conv2D)        (None, 128, 128, 128)     147584    
-_________________________________________________________________
-block2_pool (MaxPooling2D)   (None, 64, 64, 128)       0         
-_________________________________________________________________
-block3_conv1 (Conv2D)        (None, 64, 64, 256)       295168    
-_________________________________________________________________
-block3_conv2 (Conv2D)        (None, 64, 64, 256)       590080    
-_________________________________________________________________
-block3_conv3 (Conv2D)        (None, 64, 64, 256)       590080    
-_________________________________________________________________
-block3_conv4 (Conv2D)        (None, 64, 64, 256)       590080    
-_________________________________________________________________
-block3_pool (MaxPooling2D)   (None, 32, 32, 256)       0         
-_________________________________________________________________
-block4_conv1 (Conv2D)        (None, 32, 32, 512)       1180160   
-_________________________________________________________________
-block4_conv2 (Conv2D)        (None, 32, 32, 512)       2359808   
-_________________________________________________________________
-block4_conv3 (Conv2D)        (None, 32, 32, 512)       2359808   
-_________________________________________________________________
-block4_conv4 (Conv2D)        (None, 32, 32, 512)       2359808   
-_________________________________________________________________
-block4_pool (MaxPooling2D)   (None, 16, 16, 512)       0         
-_________________________________________________________________
-block5_conv1 (Conv2D)        (None, 16, 16, 512)       2359808   
-_________________________________________________________________
-block5_conv2 (Conv2D)        (None, 16, 16, 512)       2359808   
-_________________________________________________________________
-block5_conv3 (Conv2D)        (None, 16, 16, 512)       2359808   
-_________________________________________________________________
-block5_conv4 (Conv2D)        (None, 16, 16, 512)       2359808   
-_________________________________________________________________
-block5_pool (MaxPooling2D)   (None, 8, 8, 512)         0         
-=================================================================
-Total params: 20,024,384.0
-Trainable params: 20,024,384.0
-Non-trainable params: 0.0
-"""
-
 # Freeze the layers which you don't want to train. Here I am freezing the first 5 layers.
 for layer in model.layers[:5]:
     layer.trainable = False
 
 # Adding custom Layers
-x = model.output
-x = Flatten()(x)
-x = Dense(1024, activation="relu")(x)
-x = Dropout(0.5)(x)
-x = Dense(1024, activation="relu")(x)
-predictions = Dense(16, activation="softmax")(x)
+#x = model.output
+#x = Flatten()(x)
+#x = Dense(1024, activation="relu")(x)
+#x = Dropout(0.5)(x)
+#x = Dense(1024, activation="relu")(x)
+#predictions = Dense(16, activation="softmax")(x)
+
+# build a classifier model to put on top of the convolutional model
+
+top_model = Sequential()
+top_model.add(Flatten(input_shape=model.output_shape[1:]))
+top_model.add(Dense(1024, activation='relu'))
+top_model.add(Dropout(0.5))
+top_model.add(Dense(1024, activation='relu'))
+top_model.add(Dense(16, activation='softmax'))
+
+# note that it is necessary to start with a fully-trained
+# classifier, including the top classifier,
+# in order to successfully do fine-tuning
+
+# top_model.load_weights(top_model_weights_path)
 
 # creating the final model
-model_final = Model(input=model.input, output=predictions)
+model_final = model.add(top_model)
 
 # compile the model
 model_final.compile(loss="categorical_crossentropy",
