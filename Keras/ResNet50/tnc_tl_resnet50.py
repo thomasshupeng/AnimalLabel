@@ -9,7 +9,7 @@ from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array
 from keras.applications.imagenet_utils import decode_predictions
 import matplotlib.pyplot as plt
-%matplotlib inline
+# %matplotlib inline
  
 filename = 'images/cat.jpg'
 # load an image in PIL format
