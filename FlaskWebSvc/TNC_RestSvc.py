@@ -1,7 +1,35 @@
 import os
-import keras
-from flask import Flask, jsonify, request
 
+import numpy as np
+from flask import Flask, jsonify, request
+from PIL import Image
+
+import cntk.io.transforms as xforms
+from cntk import Constant, Trainer, load_model, placeholder
+from cntk.device import gpu, try_set_default_device
+from cntk.io import ImageDeserializer, MinibatchSource, StreamDef, StreamDefs
+from cntk.layers import Dense
+from cntk.learners import (learning_parameter_schedule, momentum_schedule,
+                           momentum_sgd)
+from cntk.logging import ProgressPrinter, log_number_of_parameters
+from cntk.logging.graph import find_by_name, get_node_outputs
+from cntk.losses import cross_entropy_with_softmax
+from cntk.metrics import classification_error
+from cntk.ops import combine, softmax
+from cntk.ops.functions import CloneMethod
+
+'''
+1.	PredictImageUrl
+https://southcentralus.dev.cognitive.microsoft.com/docs/services/57982f59b5964e36841e22dfbfe78fc1/operations/5a3044f608fa5e06b890f163
+                
+This one is predicting image by a given a url, which is very similar to what you have with some changes:
+a.	Instead pass pic URL as url parameter, it passes URL in http body, which doesn’t need any encoding.  
+b.	We can make projectid, iterationid, applicationid all as optional, those id can be useful for different projects(云南老君山，北大生命科学院， etc.)
+
+2.	PredictImage
+https://southcentralus.dev.cognitive.microsoft.com/docs/services/57982f59b5964e36841e22dfbfe78fc1/operations/5a3044f608fa5e06b890f164
+
+'''
 app = Flask(__name__)
 
 # 'tncai/v1.0/Prediction/cntk21'
