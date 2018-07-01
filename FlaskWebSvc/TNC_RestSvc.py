@@ -12,6 +12,7 @@ import os
 import requests
 import datetime
 import shutil
+import tempfile
 import TNC_ModelLoader
 
 '''
@@ -50,12 +51,19 @@ app = Flask(__name__)
 app.config["DEBUG"] = True
 # 1.	PredictImageUrl
 # https://southcentralus.api.cognitive.microsoft.com/customvision/v1.1/Prediction/{projectId}/url[?iterationId][&application]
-endpoint = "/" + SERVICE_NAME + "/" + API_VERSION + "/" + END_POINT_NAME + "/" + project_name_to_id['TNC'] + "/url"
-print("end point1 = ", endpoint)
+predict_image_url_endpoint = "/" + SERVICE_NAME + \
+                             "/" + API_VERSION + \
+                             "/" + END_POINT_NAME + \
+                             "/" + project_name_to_id['TNC'] + \
+                             "/url"
+print("PredictImageUrl API = ", predict_image_url_endpoint)
 
 
-@app.route(endpoint, methods=['POST'])
-def get_prediction_img_url():
+@app.route(predict_image_url_endpoint, methods=['POST'])
+def post_prediction_img_url():
+    # Print received request for debugging purpose
+    # TODO: create a logger for basic information
+
     print("=== Arguments ===")
     iteration_id = request.args.get('iterationId')
     print("iteration_id = {!s}".format(iteration_id))
@@ -64,13 +72,16 @@ def get_prediction_img_url():
     print("=== Headers ===")
     content_type = request.headers.get('Content-Type')
     print("Content-Type = {!s}".format(content_type))
+
+    # TODO: we can use Prediction-Key as model chooser
     prediction_key = request.headers.get('Prediction-Key')
     print("Prediction-Key = {!s}".format(prediction_key))
     print("=== Body ===")
     img_url = request.json.get('Url')
     print("Url = {!s}".format(img_url))
 
-    # Download image file
+    # Download image file from given Url, if failed to downloading the image simply return error code
+    # TODO: check if the file is really an image file before downloading
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
     filename = img_url[img_url.rfind('/')+1:]
@@ -96,6 +107,58 @@ def get_prediction_img_url():
         "Iteration": iteration_id,
         "Created": datetime.datetime.now().isoformat(),
         "Predictions": predictions}
+    return jsonify(res_prediction_img_url)
+
+
+# 2.	PredictImage
+# https://southcentralus.api.cognitive.microsoft.com/customvision/v1.1/Prediction/{projectId}/image[?iterationId][&application]
+predict_image_endpoint = "/" + SERVICE_NAME + \
+                             "/" + API_VERSION + \
+                             "/" + END_POINT_NAME + \
+                             "/" + project_name_to_id['TNC'] + \
+                             "/image"
+print("PredictImage API = ", predict_image_endpoint)
+
+
+@app.route(predict_image_endpoint, methods=['POST'])
+def post_prediction_image():
+    # Print received request for debugging purpose
+    # TODO: create a logger for basic information
+
+    print("=== Arguments ===")
+    iteration_id = request.args.get('iterationId')
+    print("iteration_id = {!s}".format(iteration_id))
+    application = request.args.get('application')
+    print("application = {!s}".format(application))
+    print("=== Headers ===")
+    content_type = request.headers.get('Content-Type')
+    print("Content-Type = {!s}".format(content_type))
+    content_length = request.headers.get('Content-Length')
+    print("Content-Length = {!s}".format(content_length))
+
+    # TODO: we can use Prediction-Key as model chooser
+    prediction_key = request.headers.get('Prediction-Key')
+    print("Prediction-Key = {!s}".format(prediction_key))
+    print("=== Saving content to temp file ===")
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+    temp_file = tempfile.NamedTemporaryFile(suffix='.JPG', dir=temp_folder, delete=False)
+    img_path_file = temp_file.name
+    temp_file.write(request.get_data())
+    temp_file.close()
+
+    print("Image is saved as {!s}".format(img_path_file))
+    predictions = model.predict(img_path_file)
+    os.remove(img_path_file)
+    print("Image file {!s} is removed.".format(img_path_file))
+
+    res_prediction_img_url = {
+        "Id": "string",
+        "Project": project_name_to_id['TNC'],
+        "Iteration": iteration_id,
+        "Created": datetime.datetime.now().isoformat(),
+        "Predictions": predictions}
+
     return jsonify(res_prediction_img_url)
 
 
