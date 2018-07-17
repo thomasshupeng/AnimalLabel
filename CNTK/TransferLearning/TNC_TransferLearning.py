@@ -62,7 +62,7 @@ label_stream_name = 'labels'
 new_output_node_name = "prediction"
 
 # Learning parameters
-max_epochs = 100
+max_epochs = 80
 mb_size = 25
 lr_per_mb = [0.1]*30 + [0.01]*30 + [0.001]*30
 momentum_per_mb = 0.9
@@ -155,6 +155,33 @@ def create_model(base_model_file, feature_node_name, last_hidden_node_name, num_
     return z
 
 
+# Evaluates a single image using the provided model
+def eval_single_image(loaded_model, image_path, image_width, image_height):
+    # load and format image (resize, RGB -> BGR, CHW -> HWC)
+    img = Image.open(image_path)
+    if image_path.endswith("png"):
+        temp = Image.new("RGB", img.size, (255, 255, 255))
+        temp.paste(img, img)
+        img = temp
+    resized = img.resize((image_width, image_height), Image.ANTIALIAS)
+    bgr_image = np.asarray(resized, dtype=np.float32)[..., [2, 1, 0]]
+    hwc_format = np.ascontiguousarray(np.rollaxis(bgr_image, 2))
+
+    ## Alternatively: if you want to use opencv-python
+    # cv_img = cv2.imread(image_path)
+    # resized = cv2.resize(cv_img, (image_width, image_height), interpolation=cv2.INTER_NEAREST)
+    # bgr_image = np.asarray(resized, dtype=np.float32)
+    # hwc_format = np.ascontiguousarray(np.rollaxis(bgr_image, 2))
+
+    # compute model output
+    arguments = {loaded_model.arguments[0]: [hwc_format]}
+    output = loaded_model.eval(arguments)
+
+    # return softmax probabilities
+    sm = softmax(output[0])
+    return sm.eval()
+
+
 # Trains a transfer learning model
 def train_model(base_model_file, feature_node_name, last_hidden_node_name,
                 image_width, image_height, num_channels, num_classes, train_map_file,
@@ -212,6 +239,7 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name,
             plot_data['batchindex'].append(batch_index)
             plot_data['loss'].append(trainer.previous_minibatch_loss_average)
             plot_data['error'].append(trainer.previous_minibatch_evaluation_average)
+
             batch_index += 1
         # Evaluate the model on the validation
         validation_correct_rate = eval_validation_images_during_training(tl_model, output_file, _test_map_file,
@@ -220,6 +248,10 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name,
         plot_data['validation_correct_rate'].append(validation_correct_rate)
 
         vcr_log.write("{0}\t{1}\n".format(epoch+1, validation_correct_rate))
+
+        # for every epoch, save the trained model.
+        model_file_for_current_epoch = os.path.join(output_folder, "TNC_ResNet18_ImageNet_CNTK_" + ("%03d" % epoch) + ".model")
+        tl_model.save(model_file_for_current_epoch)
 
         trainer.summarize_training_progress()
 
@@ -266,31 +298,6 @@ def train_model(base_model_file, feature_node_name, last_hidden_node_name,
     return tl_model
 
 
-# Evaluates a single image using the provided model
-def eval_single_image(loaded_model, image_path, image_width, image_height):
-    # load and format image (resize, RGB -> BGR, CHW -> HWC)
-    img = Image.open(image_path)
-    if image_path.endswith("png"):
-        temp = Image.new("RGB", img.size, (255, 255, 255))
-        temp.paste(img, img)
-        img = temp
-    resized = img.resize((image_width, image_height), Image.ANTIALIAS)
-    bgr_image = np.asarray(resized, dtype=np.float32)[..., [2, 1, 0]]
-    hwc_format = np.ascontiguousarray(np.rollaxis(bgr_image, 2))
-
-    ## Alternatively: if you want to use opencv-python
-    # cv_img = cv2.imread(image_path)
-    # resized = cv2.resize(cv_img, (image_width, image_height), interpolation=cv2.INTER_NEAREST)
-    # bgr_image = np.asarray(resized, dtype=np.float32)
-    # hwc_format = np.ascontiguousarray(np.rollaxis(bgr_image, 2))
-
-    # compute model output
-    arguments = {loaded_model.arguments[0]: [hwc_format]}
-    output = loaded_model.eval(arguments)
-
-    # return softmax probabilities
-    sm = softmax(output[0])
-    return sm.eval()
 
 # Evaluates an image set using the provided model
 def eval_test_images(loaded_model, output_file, test_map_file, image_width, image_height, max_images=-1, column_offset=0):
@@ -301,6 +308,7 @@ def eval_test_images(loaded_model, output_file, test_map_file, image_width, imag
 
     pred_count = 0
     correct_count = 0
+    test_correct_rate = 0.0
     np.seterr(over='raise')
 
     cm = ConfusionMatrix()
@@ -334,7 +342,10 @@ def eval_test_images(loaded_model, output_file, test_map_file, image_width, imag
     cm.print_matrix()
     cm.savetxt(confusion_matrix_file)
 
-    print("{0} out of {1} predictions were correct {2}.".format(correct_count, pred_count, (float(correct_count) / pred_count)))
+    test_correct_rate = float(correct_count) / pred_count
+    print("{0} out of {1} predictions were correct {2}.".format(correct_count, pred_count, test_correct_rate))
+
+
 
 
 # Evaluates an image set using the provided model
