@@ -10,6 +10,7 @@ Shu Peng
 
 import http.client, urllib.request, urllib.parse, urllib.error, base64
 import json
+import ssl
 
 headers = {
     # Request headers
@@ -27,7 +28,7 @@ test_file = "L-LJS17-EBF-0045.JPG"
 
 try:
     with open(test_file, 'rb') as f:
-        conn = http.client.HTTPConnection('127.0.0.1', port=5000)
+        conn = http.client.HTTPSConnection('127.0.0.1', port=5000, context=ssl._create_unverified_context())
         conn.request("POST", "/tncapi/v1.0/Prediction/11111111/image?{!s}".format(params), body=f.read(), headers=headers)
         response = conn.getresponse()
         data = response.read()

@@ -125,9 +125,11 @@ with open(_base_model_ID_file_name, 'w') as base_model_id_file:
 
 # Creates a minibatch source for training or testing
 def create_mb_source(map_file, image_width, image_height, num_channels, num_classes, randomize=True):
+    # https://docs.microsoft.com/en-us/python/api/cntk.io.transforms?view=cntk-py-2.5.1
     transforms = []
     transforms += [xforms.crop(crop_type='randomside', side_ratio=0.8)]
     transforms += [xforms.scale(width=image_width, height=image_height, channels=num_channels, interpolations='linear')]
+    # https://docs.microsoft.com/en-us/python/api/cntk.io.minibatchsource?view=cntk-py-2.5.1
     return MinibatchSource(ImageDeserializer(map_file, StreamDefs(
             features =StreamDef(field='image', transforms=transforms),
             labels   =StreamDef(field='label', shape=num_classes))),

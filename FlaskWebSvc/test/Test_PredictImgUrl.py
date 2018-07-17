@@ -1,6 +1,7 @@
 import http.client
 import urllib.request, urllib.parse, urllib.error
 import json
+import ssl
 
 headers = {
     # Request headers
@@ -18,7 +19,7 @@ body = {"Url": "https://theartmad.com/wp-content/uploads/2015/02/Cute-Baby-Monke
 
 json_body = json.dumps(body)
 try:
-    conn = http.client.HTTPConnection('127.0.0.1', port=5000)
+    conn = http.client.HTTPSConnection('127.0.0.1', port=5000, context=ssl._create_unverified_context())
     conn.request("POST", "/tncapi/v1.0/Prediction/11111111/url?{!s}".format(params), json_body, headers)
     response = conn.getresponse()
     data = response.read()
