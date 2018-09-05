@@ -11,13 +11,13 @@ from tkinter import messagebox
 
 import os
 import pandas as pd
-import glob
 import chardet
+from shutil import copyfile
 
 cwd = os.getcwd()
 
 root = Tk()
-APP_TITLE = "MergingCSV v1.0"
+APP_TITLE = "MergingCSV v1.1"
 
 source_path = StringVar()
 source_path.set(cwd)
@@ -27,12 +27,10 @@ output_file.set(os.path.join(cwd, "Merged.csv"))
 
 
 def file_encoding(filename):
-    f = open(filename, "rb")
     firstline = None
     encoding = "utf-8"
-    if f:
+    with open(filename, 'rb') as f:
         firstline = f.readline()
-        f.close()
     if firstline:
         encoding = chardet.detect(firstline)['encoding']
     return encoding
@@ -80,16 +78,46 @@ def merge_csv():
             else:
                 return
 
-    csv_file_list = glob.glob(os.path.join(source_dir,"*.csv")) + glob.glob(os.path.join(source_dir,"*","*.csv"))
-    print(csv_file_list)
+    csv_file_list = []
+    for root, dirs, files in os.walk(source_dir):
+        for f in files:
+            if f[-4:].lower() == '.csv':
+                csv_file_list.append(os.path.join(root, f))
     merged_df = pd.DataFrame()
     df_list = []
+    try_gb18030 = False
     for csvfile in csv_file_list:
-        temp_df = pd.read_csv(csvfile,encoding=file_encoding(csvfile))
-        #print(temp_df.shape)
-        #print(temp_df.dtypes)
-        df_list.append(temp_df)
-    merged_df = pd.concat(df_list)
+        try:
+            temp_df = pd.read_csv(csvfile, encoding=file_encoding(csvfile))
+            df_list.append(temp_df)
+        
+        except UnicodeDecodeError as e:
+            try_gb18030 = True
+        
+        except :
+            print("Error in reading csv file ", csvfile)
+            print("Copying this file to NotMeraged folder")
+            not_merged = os.path.join(merged_path, "NotMerged")
+            path, filename = os.path.split(csvfile)
+            if not os.path.exists(not_merged):
+                os.makedirs(not_merged)
+            copyfile(csvfile, os.path.join(not_merged, filename))
+        
+        if try_gb18030 :
+            try_gb18030 = False
+            try:
+                temp_df = pd.read_csv(csvfile, encoding='gb18030')
+                df_list.append(temp_df)
+            except :
+                print("Error in reading csv file ", csvfile)
+                print("Copying this file to NotMeraged folder")
+                not_merged = os.path.join(merged_path, "NotMerged")
+                path, filename = os.path.split(csvfile)
+                if not os.path.exists(not_merged):
+                    os.makedirs(not_merged)
+                    copyfile(csvfile, os.path.join(not_merged, filename))
+
+    merged_df = pd.concat(df_list, axis=0, sort=False)
     print("Merged csv shape:")
     print(merged_df.shape)
     print(merged_df.dtypes)
@@ -97,7 +125,6 @@ def merge_csv():
     merged_df.drop_duplicates(inplace=True)
     print(merged_df.shape)
     merged_df.to_csv(merged_file, encoding='utf-8-sig', index=False)
-
     return
 
 
