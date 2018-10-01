@@ -41,12 +41,15 @@ def _resize_jpg(source_path, destin_path, width, height):
     for img_file_name in jpg_file_list:
         # Load an color image
         print("Loading original image file -", img_file_name)
-        img = cv2.imread(img_file_name)
-        re_img = cv2.resize(img, (width, height))
-        # save
-        resized_name = os.path.join(destin_path, os.path.basename(img_file_name))
-        print("Saving resized image as ", resized_name)
-        cv2.imwrite(resized_name, re_img)
+        try:
+            img = cv2.imread(img_file_name)
+            re_img = cv2.resize(img, (width, height))
+            # save
+            resized_name = os.path.join(destin_path, os.path.basename(img_file_name))
+            print("Saving resized image as ", resized_name)
+            cv2.imwrite(resized_name, re_img)
+        except:
+            print("Failed to resize image.", img_file_name)
     print("Done")
     return
 
