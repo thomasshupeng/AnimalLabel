@@ -12,13 +12,14 @@ from tkinter import filedialog
 import os
 import cv2
 import glob
+import concurrent.futures
 
 # openCv installation
 TARGET_WIDTH = 682
 TARGET_HEIGHT = 512
 
 root = Tk()
-APP_TITLE = "ImgResize v1.2"
+APP_TITLE = "ImgResize v1.3"
 
 main_frame = None
 
@@ -30,16 +31,12 @@ pix_height = StringVar()
 
 include_sub_folder = IntVar()
 
-
-def _resize_jpg(source_path, destin_path, width, height):
-    jpg_file_list = glob.glob(os.path.join(source_path,"*.jpg"))
-
-    if not os.path.exists(destin_path):
-        print("Creating the target path:", destin_path)
-        os.mkdir(destin_path)
-
-    for img_file_name in jpg_file_list:
+def _cv2_resize(task):
         # Load an color image
+        img_file_name = task[0]
+        destin_path = task[1]
+        width = task[2]
+        height = task[3]
         print("Loading original image file -", img_file_name)
         try:
             img = cv2.imread(img_file_name)
@@ -50,6 +47,21 @@ def _resize_jpg(source_path, destin_path, width, height):
             cv2.imwrite(resized_name, re_img)
         except:
             print("Failed to resize image.", img_file_name)
+        return
+       
+ 
+def _resize_jpg(source_path, destin_path, width, height):
+    jpg_file_list = glob.glob(os.path.join(source_path,"*.jpg"))
+
+    if not os.path.exists(destin_path):
+        print("Creating the target path:", destin_path)
+        os.mkdir(destin_path)
+
+    taskes = [(jpg, destin_path, width, height) for jpg in jpg_file_list]
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(_cv2_resize, taskes)
+
     print("Done")
     return
 
@@ -90,7 +102,7 @@ def resize():
                 sub_target = target + sub_source[len_source_path:]
                 _resize_jpg(sub_source, sub_target, width, height)
     else:
-        _resize_jpg(source,target, width, height)
+        _resize_jpg(source, target, width, height)
     return
 
 
